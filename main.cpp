@@ -5,9 +5,6 @@
 #include <sstream>
 #include <fstream>
 
-const int ADDRESS_LENGTH = 5;
-const int CHARACTERS = 2;
-
 std::vector<bool> address_to_bits(const std::string & input) {
     std::vector<bool> out;
 
@@ -61,7 +58,7 @@ std::vector<bool> address_to_bits(const std::string & input) {
 
 struct trie_node {
     trie_node * parent;
-    trie_node * children[CHARACTERS];
+    trie_node * children[2];
     //set -1 if node doesnt end subnet record
     size_t pop;
 
@@ -131,12 +128,43 @@ struct trie {
 
 };
 
+std::pair<size_t, u_char> Route(trie * data, const std::vector<bool> & address_in_bits) {
+    trie_node * current_node = &data->root;
+
+    size_t traversed_bits = 0;
+
+    std::cout << "------------------" << std::endl;
+
+    for(auto bit: address_in_bits) {
+        if(current_node->children[bit] != nullptr) {
+            std::cout << bit;
+            traversed_bits++;
+            current_node = current_node->children[bit];
+            continue;
+        }
+        break;
+    }
+
+    std::cout << std::endl << "------------------  " << traversed_bits << " " << current_node->pop << std::endl;
+
+    while ((current_node->pop == -1) && (traversed_bits > 0)) {
+        current_node = current_node->parent;
+        traversed_bits --;
+    }
+
+    return {current_node->pop, traversed_bits};
+}
+
 int main() {
 
     trie a;
 
     a.load_data("../data");
-    a.address_stored(address_to_bits(std::string("2081:49f0:d0b8::/48")));
+    a.address_stored(address_to_bits(std::string("2001:49f0:d0b8::/48")));
+
+    auto [pop, prefix] = Route(&a, address_to_bits(std::string("2001:49f0:d0b8:0::/56")));
+
+    std::cout << pop << " " << prefix << std::endl;
 
     return 0;
 }
