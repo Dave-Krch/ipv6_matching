@@ -4,6 +4,7 @@
 #include <vector>
 #include <sstream>
 #include <fstream>
+#include <assert.h>
 
 std::vector<bool> address_to_bits(const std::string & input) {
     std::vector<bool> out;
@@ -37,7 +38,7 @@ std::vector<bool> address_to_bits(const std::string & input) {
 
         std::bitset<16> token_binary(token_decimal);
 
-        std::cout << token_binary.to_string() << std::endl;
+        //std::cout << token_binary.to_string() << std::endl;
 
         for(int i = 15; i >= 0; i-- ) {
             if(writen_bits == prefix)
@@ -48,24 +49,24 @@ std::vector<bool> address_to_bits(const std::string & input) {
     }
 
     for(size_t bit: out) {
-        std::cout << bit;
+        //std::cout << bit;
     }
 
-    std::cout << std::endl;
+    //std::cout << std::endl;
 
     return out;
 }
 
-struct trie_node {
-    trie_node * parent;
-    trie_node * children[2];
+struct Node {
+    Node * parent;
+    Node * children[2];
     //set -1 if node doesnt end subnet record
     size_t pop;
 
-    trie_node() : parent(nullptr), children{}, pop(-1) {
+    Node() : parent(nullptr), children{}, pop(-1) {
     }
 
-    ~trie_node() {
+    ~Node() {
         for(auto & i : children) {
                 delete i;
         }
@@ -73,16 +74,16 @@ struct trie_node {
 
 };
 
-struct trie {
-    trie_node root;
+struct Trie {
+    Node root;
 
-    void insert_entry(const std::vector<bool> & address_in_bits, size_t pop) {
+    void InsertEntry(const std::vector<bool> & address_in_bits, size_t pop) {
 
-        trie_node * current_node = &root;
+        Node * current_node = &root;
 
         for(const auto bit: address_in_bits) {
             if(current_node->children[bit] == nullptr) {
-                current_node->children[bit] = new trie_node();
+                current_node->children[bit] = new Node();
                 current_node->children[bit]->parent = current_node;
                 current_node = current_node->children[bit];
             }
@@ -94,7 +95,7 @@ struct trie {
         current_node->pop = pop;
     }
 
-    void load_data(const char * path) {
+    void LoadData(const char * path) {
         std::ifstream data;
         data.open(path);
 
@@ -105,39 +106,39 @@ struct trie {
         std::string pop;
 
         while (data >> address >> pop) {
-            std::cout << "Inserting: " << address << " " << pop << std::endl;
-            insert_entry(address_to_bits(address), stoi(pop));
+             //std::cout << "Inserting: " << address << " " << pop << std::endl;
+            InsertEntry(address_to_bits(address), stoi(pop));
         }
     }
 
-    bool address_stored(const std::vector<bool> & address_in_bits) {
-        trie_node * current_node = &root;
+    bool AddressStored(const std::vector<bool> & address_in_bits) {
+        Node * current_node = &root;
 
         for(auto bit: address_in_bits) {
             if(current_node->children[bit] == nullptr) {
-                std::cout << "Address not stored" << std::endl;
+                //std::cout << "Address not stored" << std::endl;
                 return false;
             }
 
             current_node = current_node->children[bit];
         }
 
-        std::cout << "Address stored, pop = " << current_node->pop << std::endl;
+        //std::cout << "Address stored, pop = " << current_node->pop << std::endl;
         return true;
     }
 
 };
 
-std::pair<size_t, u_char> Route(trie * data, const std::vector<bool> & address_in_bits) {
-    trie_node * current_node = &data->root;
+std::pair<size_t, u_char> Route(Trie * data, const std::vector<bool> & address_in_bits) {
+    Node * current_node = &data->root;
 
     size_t traversed_bits = 0;
 
-    std::cout << "------------------" << std::endl;
+     //std::cout << "------------------" << std::endl;
 
     for(auto bit: address_in_bits) {
         if(current_node->children[bit] != nullptr) {
-            std::cout << bit;
+            //std::cout << bit;
             traversed_bits++;
             current_node = current_node->children[bit];
             continue;
@@ -145,26 +146,38 @@ std::pair<size_t, u_char> Route(trie * data, const std::vector<bool> & address_i
         break;
     }
 
-    std::cout << std::endl << "------------------  " << traversed_bits << " " << current_node->pop << std::endl;
+    //std::cout << std::endl << "------------------  " << traversed_bits << " " << current_node->pop << std::endl;
 
     while ((current_node->pop == -1) && (traversed_bits > 0)) {
         current_node = current_node->parent;
         traversed_bits --;
     }
 
+    if(traversed_bits == 0)
+        return {0, 0};
+
     return {current_node->pop, traversed_bits};
 }
 
 int main() {
 
-    trie a;
+    Trie a;
 
-    a.load_data("../data");
-    a.address_stored(address_to_bits(std::string("2001:49f0:d0b8::/48")));
+    a.LoadData("../data");
 
-    auto [pop, prefix] = Route(&a, address_to_bits(std::string("2001:49f0:d0b8:0::/56")));
+    std::pair<size_t, u_char> val;
 
-    std::cout << pop << " " << prefix << std::endl;
+    val = Route(&a, address_to_bits(std::string("2001:1502::/56")));
+
+    assert((val.first == 1) && (val.second == 16));
+
+    val = Route(&a, address_to_bits(std::string("2000:0001::/32")));
+
+    assert((val.first == 6) && (val.second == 32));
+
+    val = Route(&a, address_to_bits(std::string("aaaa:0001::/32")));
+
+    assert((val.first == 0) && (val.second == 0));
 
     return 0;
 }
